@@ -137,6 +137,7 @@ tags
 build.log
 program.log
 images/
+.cache/
 
 # Created by git when using merge tools for conflicts
 *.BACKUP.*

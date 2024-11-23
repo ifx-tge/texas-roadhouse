@@ -237,7 +237,7 @@ int main(void)
     cy_rslt_t result;
     uint32_t capsense_state_timeout;
     uint32_t interruptStatus;
-    cy_rslt_t my_result;
+//    cy_rslt_t my_result;
 
     result = cybsp_init() ;
 
@@ -644,21 +644,21 @@ static uint32_t stop_runtime_measurement()
  *******************************************************************************/
 void led_control()
 {
-    cy_stc_capsense_touch_t *slider_touch_info;
-    uint16_t slider_pos;
+//    cy_stc_capsense_touch_t *slider_touch_info;
+//    uint16_t slider_pos;
 
     if(Cy_CapSense_IsAnyWidgetActive(&cy_capsense_context))
     {
-        if(Cy_CapSense_IsWidgetActive(CY_CAPSENSE_LINEARSLIDER0_WDGT_ID, &cy_capsense_context))
-        {
-            /* Get slider status */
-            slider_touch_info = Cy_CapSense_GetTouchInfo(
-                    CY_CAPSENSE_LINEARSLIDER0_WDGT_ID, &cy_capsense_context);
-            slider_pos = slider_touch_info->ptrPosition->x;
-
-            /* LED3 Turns ON and brightness changes when there is a touch detected on the slider */
-            Cy_TCPWM_PWM_SetCompare0(CYBSP_PWM_HW, CYBSP_PWM_NUM, slider_pos*100);
-        }
+//        if(Cy_CapSense_IsWidgetActive(CY_CAPSENSE_LINEARSLIDER0_WDGT_ID, &cy_capsense_context))
+//        {
+//            /* Get slider status */
+//            slider_touch_info = Cy_CapSense_GetTouchInfo(
+//                    CY_CAPSENSE_LINEARSLIDER0_WDGT_ID, &cy_capsense_context);
+//            slider_pos = slider_touch_info->ptrPosition->x;
+//
+//            /* LED3 Turns ON and brightness changes when there is a touch detected on the slider */
+//            Cy_TCPWM_PWM_SetCompare0(CYBSP_PWM_HW, CYBSP_PWM_NUM, slider_pos*100);
+//        }
         if(0u != Cy_CapSense_IsWidgetActive(CY_CAPSENSE_BUTTON0_WDGT_ID, &cy_capsense_context) || 0u != Cy_CapSense_IsWidgetActive(CY_CAPSENSE_BUTTON1_WDGT_ID, &cy_capsense_context))
         {
             /* LED2 Turns ON when there is a touch detected on the CSD or CSX button*/
