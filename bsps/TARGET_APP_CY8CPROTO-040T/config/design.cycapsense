@@ -125,9 +125,9 @@
                 <Property id="CIC_RATE" value="96"/>
                 <Property id="CIC_SHIFT" value="AUTO"/>
                 <Property id="ROW_CIC_SHIFT" value="AUTO"/>
-                <Property id="CDAC_REF0" value="55"/>
+                <Property id="CDAC_REF0" value="54"/>
                 <Property id="ROW_CDAC_REF0" value="0"/>
-                <Property id="CDAC_FINE0" value="0"/>
+                <Property id="CDAC_FINE0" value="3"/>
                 <Property id="ROW_CDAC_FINE0" value="0"/>
                 <Property id="MAX_RAW_COUNT" value="0"/>
                 <Property id="ROW_MAX_RAW_COUNT" value="0"/>
@@ -215,7 +215,7 @@
             <Electrodes>
                 <Electrode id="Sns0" kind="Sensor">
                     <ElectrodeProperties>
-                        <Property id="CDAC0" value="249"/>
+                        <Property id="CDAC0" value="250"/>
                         <Property id="CDAC1" value="32"/>
                         <Property id="CDAC2" value="32"/>
                         <Property id="PINS" value="LowPower0_Sns1,Button0_Rx0,Button0_Tx,Button1_Sns0"/>
@@ -252,7 +252,7 @@
                 <Property id="ROW_CIC_SHIFT" value="AUTO"/>
                 <Property id="CDAC_REF0" value="58"/>
                 <Property id="ROW_CDAC_REF0" value="0"/>
-                <Property id="CDAC_FINE0" value="3"/>
+                <Property id="CDAC_FINE0" value="5"/>
                 <Property id="ROW_CDAC_FINE0" value="0"/>
                 <Property id="MAX_RAW_COUNT" value="0"/>
                 <Property id="ROW_MAX_RAW_COUNT" value="0"/>
@@ -374,7 +374,7 @@
                 <Property id="ROW_CIC_SHIFT" value="AUTO"/>
                 <Property id="CDAC_REF0" value="25"/>
                 <Property id="ROW_CDAC_REF0" value="0"/>
-                <Property id="CDAC_FINE0" value="3"/>
+                <Property id="CDAC_FINE0" value="2"/>
                 <Property id="ROW_CDAC_FINE0" value="0"/>
                 <Property id="MAX_RAW_COUNT" value="0"/>
                 <Property id="ROW_MAX_RAW_COUNT" value="0"/>
@@ -462,7 +462,7 @@
             <Electrodes>
                 <Electrode id="Sns0" kind="Sensor">
                     <ElectrodeProperties>
-                        <Property id="CDAC0" value="0"/>
+                        <Property id="CDAC0" value="2"/>
                         <Property id="CDAC1" value="32"/>
                         <Property id="CDAC2" value="32"/>
                         <Property id="PINS" value="Dedicated pin"/>
