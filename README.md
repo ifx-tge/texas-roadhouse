@@ -5,13 +5,14 @@ When a colleague opens the application, they need to do a few things:
 2.	Then, run "make getlibs" or open the Library Manager and click Update to get the mtb_shared directory. 
 3.	Open any needed Configurators and click Save to get GeneratedSource files. 
 4.	And finally build the application to make sure everything works as intended.
+*note: when using command line tools you may only need to run "make getlibs" and then "make build" to confirm.
 
 
 #1. Background
-- the following folders have been removed: /libs, /images, /build, /GeneratedSource
-- library versions have been locked
-- tools version has been locked -> export CY_TOOLS_PATHS=/opt/Tools/ModusToolbox/tools_3.3/
-- added TGE specific files to .gitignore; including /images (saves ~35MBytes)
-- minimal footprint uploaded to github
+1. the following folders have been removed: /libs, /images, /build, /GeneratedSource
+2. library versions have been locked
+3. tools version has been locked -> export CY_TOOLS_PATHS=/opt/Tools/ModusToolbox/tools_3.3/
+4. added TGE specific files to .gitignore; including /images (saves ~35MBytes)
+5. minimal footprint uploaded to github
 
 
