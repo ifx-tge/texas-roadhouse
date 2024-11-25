@@ -3,36 +3,38 @@
     <Devices>
         <Device mpn="CY8C4046LQI-T452">
             <BlockConfig>
-                <Block location="ioss[0].port[0].pin[0]">
-                    <Aliases>
-                        <Alias value="CYBSP_CSD_SLD_RX4"/>
-                        <Alias value="CYBSP_CSX_SLD_RX4"/>
-                    </Aliases>
-                </Block>
-                <Block location="ioss[0].port[0].pin[1]">
-                    <Aliases>
-                        <Alias value="CYBSP_CSD_SLD_RX3"/>
-                        <Alias value="CYBSP_CSX_SLD_RX3"/>
-                    </Aliases>
-                </Block>
-                <Block location="ioss[0].port[0].pin[2]">
-                    <Aliases>
-                        <Alias value="CYBSP_CSD_SLD_RX2"/>
-                        <Alias value="CYBSP_CSX_SLD_RX2"/>
-                    </Aliases>
-                </Block>
-                <Block location="ioss[0].port[0].pin[3]">
-                    <Aliases>
-                        <Alias value="CYBSP_CSD_SLD_RX1"/>
-                        <Alias value="CYBSP_CSX_SLD_RX1"/>
-                    </Aliases>
-                </Block>
-                <Block location="ioss[0].port[0].pin[4]">
-                    <Aliases>
-                        <Alias value="CYBSP_CSD_SLD_RX0"/>
-                        <Alias value="CYBSP_CSX_SLD_RX0"/>
-                    </Aliases>
-                </Block>
+                <Personality template="m0s8pin" version="2.0">
+                    <Block location="ioss[0].port[0].pin[2]" locked="true">
+                        <Aliases>
+                            <Alias value="TGE_ACTIVE_SPI_MOSI"/>
+                        </Aliases>
+                    </Block>
+                    <Parameters>
+                        <Param id="DriveModes" value="CY_GPIO_DM_STRONG_IN_OFF"/>
+                        <Param id="inFlash" value="true"/>
+                        <Param id="initialState" value="1"/>
+                        <Param id="isrTrigger" value="CY_GPIO_INTR_DISABLE"/>
+                        <Param id="portLevelConfig" value="false"/>
+                        <Param id="slewRate" value="CY_GPIO_SLEW_FAST"/>
+                        <Param id="vtrip" value="CY_GPIO_VTRIP_CMOS"/>
+                    </Parameters>
+                </Personality>
+                <Personality template="m0s8pin" version="2.0">
+                    <Block location="ioss[0].port[0].pin[4]" locked="true">
+                        <Aliases>
+                            <Alias value="TGE_ACTIVE_SPI_CLK"/>
+                        </Aliases>
+                    </Block>
+                    <Parameters>
+                        <Param id="DriveModes" value="CY_GPIO_DM_STRONG_IN_OFF"/>
+                        <Param id="inFlash" value="true"/>
+                        <Param id="initialState" value="1"/>
+                        <Param id="isrTrigger" value="CY_GPIO_INTR_DISABLE"/>
+                        <Param id="portLevelConfig" value="false"/>
+                        <Param id="slewRate" value="CY_GPIO_SLEW_FAST"/>
+                        <Param id="vtrip" value="CY_GPIO_VTRIP_CMOS"/>
+                    </Parameters>
+                </Personality>
                 <Personality template="m0s8pin" version="2.0">
                     <Block location="ioss[0].port[1].pin[0]" locked="true">
                         <Aliases>
@@ -319,6 +321,56 @@
                         <Param id="startOnReset" value="true"/>
                     </Parameters>
                 </Personality>
+                <Personality template="m0s8mxscb3spi" version="1.0">
+                    <Block location="scb[0]" locked="true">
+                        <Aliases>
+                            <Alias value="mSPI"/>
+                        </Aliases>
+                    </Block>
+                    <Parameters>
+                        <Param id="ApiMode" value="HIGH_LEVEL"/>
+                        <Param id="BitsOrder" value="MSB_FIRST"/>
+                        <Param id="DataRate" value="8000"/>
+                        <Param id="DeassertSelectLine" value="false"/>
+                        <Param id="DropParityError" value="false"/>
+                        <Param id="EnableFreeRunSclk" value="false"/>
+                        <Param id="EnableInputFilter" value="false"/>
+                        <Param id="EnableLateMisoSample" value="true"/>
+                        <Param id="EnableWakeup" value="false"/>
+                        <Param id="IntrMasterSpiDone" value="false"/>
+                        <Param id="IntrRxFull" value="false"/>
+                        <Param id="IntrRxNotEmpty" value="false"/>
+                        <Param id="IntrRxOverflow" value="false"/>
+                        <Param id="IntrRxParityError" value="false"/>
+                        <Param id="IntrRxTrigger" value="false"/>
+                        <Param id="IntrRxUnderflow" value="false"/>
+                        <Param id="IntrSlaveBusError" value="false"/>
+                        <Param id="IntrTxEmpty" value="false"/>
+                        <Param id="IntrTxNotFull" value="false"/>
+                        <Param id="IntrTxOverflow" value="false"/>
+                        <Param id="IntrTxTrigger" value="false"/>
+                        <Param id="IntrTxUnderflow" value="false"/>
+                        <Param id="ModeUser" value="CY_SCB_SPI_MASTER"/>
+                        <Param id="MosiIdleHighLevel" value="false"/>
+                        <Param id="OvsFactor" value="6"/>
+                        <Param id="ParityType" value="CY_SCB_SPI_PARITY_NONE"/>
+                        <Param id="RxDataWidth" value="8"/>
+                        <Param id="RxTriggerLevel" value="7"/>
+                        <Param id="SclkModeUser" value="CY_SCB_SPI_CPHA0_CPOL0"/>
+                        <Param id="Ss0Polarity" value="CY_SCB_SPI_ACTIVE_LOW"/>
+                        <Param id="Ss1Polarity" value="CY_SCB_SPI_ACTIVE_LOW"/>
+                        <Param id="Ss2Polarity" value="CY_SCB_SPI_ACTIVE_LOW"/>
+                        <Param id="Ss3Polarity" value="CY_SCB_SPI_ACTIVE_LOW"/>
+                        <Param id="SubModeUser" value="CY_SCB_SPI_MOTOROLA"/>
+                        <Param id="T_DSO_INTERNAL" value="20"/>
+                        <Param id="TxDataWidth" value="8"/>
+                        <Param id="TxTriggerLevel" value="0"/>
+                        <Param id="inFlash" value="true"/>
+                        <Param id="slaveSelectHoldDelay" value="CY_SCB_SPI_SS_HOLD_DELAY_0_75_CYCLES"/>
+                        <Param id="slaveSelectInterDataFrameDelay" value="CY_SCB_SPI_SS_INTERFRAME_DELAY_1_5_CYCLES"/>
+                        <Param id="slaveSelectSetupDelay" value="CY_SCB_SPI_SS_SETUP_DELAY_0_75_CYCLES"/>
+                    </Parameters>
+                </Personality>
                 <Personality template="m0s8mxscb3ezi2c" version="1.0">
                     <Block location="scb[1]" locked="true">
                         <Aliases>
@@ -407,6 +459,14 @@
             </BlockConfig>
             <Netlist>
                 <Net>
+                    <Port name="ioss[0].port[0].pin[2].digital_inout[0]"/>
+                    <Port name="scb[0].spi_mosi[0]"/>
+                </Net>
+                <Net>
+                    <Port name="ioss[0].port[0].pin[4].digital_inout[0]"/>
+                    <Port name="scb[0].spi_clk[0]"/>
+                </Net>
+                <Net>
                     <Port name="ioss[0].port[1].pin[0].digital_out[0]"/>
                     <Port name="tcpwm[0].cnt[1].line[0]"/>
                 </Net>
@@ -419,12 +479,13 @@
                     <Port name="scb[1].i2c_sda[0]"/>
                 </Net>
                 <Net>
-                    <Port name="peri[0].div_16[0].clk[0]"/>
-                    <Port name="tcpwm[0].cnt[1].clock[0]"/>
-                </Net>
-                <Net>
                     <Port name="peri[0].div_16[1].clk[0]"/>
                     <Port name="scb[1].clock[0]"/>
+                </Net>
+                <Net>
+                    <Port name="peri[0].div_16[0].clk[0]"/>
+                    <Port name="scb[0].clock[0]"/>
+                    <Port name="tcpwm[0].cnt[1].clock[0]"/>
                 </Net>
                 <Mux name="cmod" location="msclp[0].msclp[0]">
                     <Arm>

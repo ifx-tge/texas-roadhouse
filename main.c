@@ -218,6 +218,42 @@ cy_stc_syspm_callback_t deepSleepCb =
 uint32_t process_time=0;
 
 /*******************************************************************************
+ * SPIM Macros
+ ******************************************************************************/
+/* Initialization status */
+#define INIT_SUCCESS            (0)
+#define INIT_FAILURE            (1)
+
+/* Element index in the packet */
+#define PACKET_SOP_POS          (0UL)
+#define PACKET_CMD_POS          (1UL)
+#define PACKET_EOP_POS          (2UL)
+
+/* TX Packet Head and Tail */
+#define PACKET_SOP          (0x01UL)
+#define PACKET_EOP          (0x17UL)
+
+/* Assign SPI interrupt priority */
+#define mSPI_INTR_PRIORITY  (3U)
+
+/* Number of elements in the transmit buffer */
+/* There are three elements - one for head, one for command and one for tail */
+#define NUMBER_OF_ELEMENTS  (3UL)
+#define SIZE_OF_ELEMENT     (1UL)
+#define SIZE_OF_PACKET      (NUMBER_OF_ELEMENTS * SIZE_OF_ELEMENT)
+
+/***************************************
+* SPIM Function Prototypes
+****************************************/
+uint32_t initMaster(void);
+cy_en_scb_spi_status_t sendPacket(uint8_t *, uint32_t);
+
+/*******************************************************************************
+ * SPIM Global Variables
+ ******************************************************************************/
+cy_stc_scb_spi_context_t mSPI_context;
+
+/*******************************************************************************
  * Function Name: main
  ********************************************************************************
  * Summary:
@@ -237,7 +273,11 @@ int main(void)
     cy_rslt_t result;
     uint32_t capsense_state_timeout;
     uint32_t interruptStatus;
-//    cy_rslt_t my_result;
+    cy_en_scb_spi_status_t status;
+    uint32_t cmd_send = CYBSP_LED_STATE_OFF;
+
+    /* Buffer to hold command packet to be sent to the slave by the master */
+    uint8_t  txBuffer[NUMBER_OF_ELEMENTS];
 
     result = cybsp_init() ;
 
@@ -249,6 +289,14 @@ int main(void)
     if (result != CY_RSLT_SUCCESS)
     {
         CY_ASSERT(CY_ASSERT_FAILED);
+    }
+
+    /* Initialize the SPI Master */
+    result = initMaster();
+    /* Initialization failed. Stop program execution */
+    if(result != INIT_SUCCESS)
+    {
+        CY_ASSERT(0);
     }
 
     /* Enable global interrupts */
@@ -308,7 +356,7 @@ int main(void)
                 }
 
                 #if ENABLE_RUN_TIME_MEASUREMENT
-                active_processing_time=0;
+                uint32_t active_processing_time=0;
                 start_runtime_measurement();
                 #endif
 
@@ -366,7 +414,7 @@ int main(void)
                 Cy_SysLib_ExitCriticalSection(interruptStatus);
 
                 #if ENABLE_RUN_TIME_MEASUREMENT
-                alr_processing_time=0;
+                uint32_t alr_processing_time=0;
                 start_runtime_measurement();
                 #endif
 
@@ -470,6 +518,26 @@ int main(void)
         /* Establishes synchronized communication with the CAPSENSE&trade; Tuner tool */
         Cy_CapSense_RunTuner(&cy_capsense_context);
         #endif
+
+        /* Toggle the current LED state */
+        cmd_send = (cmd_send == CYBSP_LED_STATE_OFF) ? CYBSP_LED_STATE_ON :
+                                                       CYBSP_LED_STATE_OFF;
+
+        /* Form the command packet */
+        txBuffer[PACKET_SOP_POS] = 0x55; //PACKET_SOP;
+        txBuffer[PACKET_CMD_POS] = 0x55; //cmd_send;
+        txBuffer[PACKET_EOP_POS] = 0x55; //PACKET_EOP;
+
+        /* Send the packet to the slave */
+        status = sendPacket(txBuffer, SIZE_OF_PACKET);
+        if(status != CY_SCB_SPI_SUCCESS)
+        {
+            CY_ASSERT(0);
+        }
+
+        /* Delay between commands */
+//        Cy_SysLib_Delay(1000);
+
     }
 }
 
@@ -746,6 +814,108 @@ cy_en_syspm_status_t deep_sleep_callback(
             break;
     }
     return ret_val;
+}
+
+/*******************************************************************************
+ * Function Name: mSPI_Interrupt
+ *******************************************************************************
+ *
+ * Invokes the Cy_SCB_SPI_Interrupt() PDL driver function.
+ *
+ ******************************************************************************/
+void mSPI_Interrupt(void)
+{
+    Cy_SCB_SPI_Interrupt(mSPI_HW, &mSPI_context);
+}
+
+/*******************************************************************************
+ * Function Name: initMaster
+ *******************************************************************************
+ *
+ * Summary:
+ * This function initializes the SPI master based on the configuration done in
+ * design.modus file.
+ *
+ * Parameters:
+ * None
+ *
+ * Return:
+ * uint32_t - Returns INIT_SUCCESS if the initialization is successful.
+ * Otherwise it returns INIT_FAILURE
+ *
+ ******************************************************************************/
+uint32_t initMaster(void)
+{
+    cy_en_scb_spi_status_t result;
+    cy_en_sysint_status_t sysSpistatus;
+
+    /* Configure the SPI block */
+
+    result = Cy_SCB_SPI_Init(mSPI_HW, &mSPI_config, &mSPI_context);
+    if( result != CY_SCB_SPI_SUCCESS)
+    {
+        return(INIT_FAILURE);
+    }
+
+    /* Set active slave select to line 0 */
+//    Cy_SCB_SPI_SetActiveSlaveSelect(mSPI_HW, CY_SCB_SPI_SLAVE_SELECT0);
+
+    /* Populate configuration structure */
+
+    const cy_stc_sysint_t mSPI_SCB_IRQ_cfg =
+    {
+            .intrSrc      = mSPI_IRQ,
+            .intrPriority = mSPI_INTR_PRIORITY
+    };
+
+    /* Hook interrupt service routine and enable interrupt */
+    sysSpistatus = Cy_SysInt_Init(&mSPI_SCB_IRQ_cfg, &mSPI_Interrupt);
+    if(sysSpistatus != CY_SYSINT_SUCCESS)
+    {
+        return(INIT_FAILURE);
+    }
+    /* Enable interrupt in NVIC */
+    NVIC_EnableIRQ(mSPI_IRQ);
+
+    /* Enable the SPI Master block */
+    Cy_SCB_SPI_Enable(mSPI_HW);
+
+    /* Initialization completed */
+    return(INIT_SUCCESS);
+}
+
+
+/*******************************************************************************
+ * Function Name: sendPacket
+ *******************************************************************************
+ *
+ * Summary:
+ * This function sends the data to the slave.
+ *
+ * Parameters:
+ * txBuffer - Pointer to the transmit buffer
+ * transferSize - Number of bytes to be transmitted
+ *
+ * Return:
+ * cy_en_scb_spi_status_t - CY_SCB_SPI_SUCCESS if the transaction completes
+ * successfully. Otherwise it returns the error status
+ *
+ ******************************************************************************/
+cy_en_scb_spi_status_t sendPacket(uint8_t *txBuffer, uint32_t transferSize)
+{
+    cy_en_scb_spi_status_t masterStatus;
+
+    /* Initiate SPI Master write transaction. */
+    masterStatus = Cy_SCB_SPI_Transfer(mSPI_HW, txBuffer, NULL,
+                                       transferSize, &mSPI_context);
+
+    /* Blocking wait for transfer completion */
+    while (0UL != (CY_SCB_SPI_TRANSFER_ACTIVE &
+                   Cy_SCB_SPI_GetTransferStatus(mSPI_HW, &mSPI_context)))
+    {
+    }
+
+    return (masterStatus);
 }
 
 /* [] END OF FILE */
