@@ -53,25 +53,34 @@
 /*******************************************************************************
  * User configurable Macros
  ********************************************************************************/
-/*Enables the Runtime measurement functionality used to for processing time measurement */
+
+/* enable only one (1) physical interface below for ACTIVE PRO, adjust SCB0 accordingly */
+#define ACTIVE_SPIM_ENABLED				(0u)
+#define ACTIVE_GPIO_ENABLED				(0u)
+#define ACTIVE_UART_ENABLED				(1u)
+
+/* Comment this line out to remove all ACTIVE Debug output from your project */
+#define ACTIVE_DEBUG_ON
+
+/* Enables the Runtime measurement functionality used to for processing time measurement */
 #define ENABLE_RUN_TIME_MEASUREMENT     (0u)
 
 /* Enable this, if Tuner needs to be enabled */
 #define ENABLE_TUNER                    (1u)
 
-/*Enable PWM controlled LEDs*/
+/* Enable PWM controlled LEDs */
 #define ENABLE_PWM_LED                  (1u)
 
-/* 128Hz Refresh rate in Active mode */
+/* 128Hz (7.8125msec) Refresh rate in Active mode */
 #define ACTIVE_MODE_REFRESH_RATE        (128u)
 
-/* 32Hz Refresh rate in Active-Low Refresh rate(ALR) mode */
+/* 32Hz (31.24msec) Refresh rate in Active-Low Refresh rate(ALR) mode */
 #define ALR_MODE_REFRESH_RATE           (32u)
 
-/* Timeout to move from ACTIVE mode to ALR mode if there is no user activity */
+/* Timeout (10 seconds) to move from ACTIVE mode to ALR mode if there is no user activity */
 #define ACTIVE_MODE_TIMEOUT_SEC         (10u)
 
-/* Timeout to move from ALR mode to WOT mode if there is no user activity */
+/* Timeout (5 seconds) to move from ALR mode to WOT mode if there is no user activity */
 #define ALR_MODE_TIMEOUT_SEC            (5u)
 
 /* Active mode Scan time calculated in us ~= 87us */
@@ -80,7 +89,7 @@
 /* Active mode Processing time in us ~= 92us with LEDs and Tuner disabled*/
 #define ACTIVE_MODE_PROCESS_TIME        (92u)
 
-/* ALR mode Scan time caluculated in us ~= 87us */
+/* ALR mode Scan time calculated in us ~= 87us */
 #define ALR_MODE_FRAME_SCAN_TIME        (87u)
 
 /* ALR mode Processing time in us ~= 92us with LEDs and Tuner disabled*/
@@ -217,6 +226,8 @@ cy_stc_syspm_callback_t deepSleepCb =
 
 uint32_t process_time=0;
 
+#if ACTIVE_SPIM_ENABLED
+
 /*******************************************************************************
  * SPIM Macros
  ******************************************************************************/
@@ -237,8 +248,8 @@ uint32_t process_time=0;
 #define mSPI_INTR_PRIORITY  (3U)
 
 /* Number of elements in the transmit buffer */
-/* There are three elements - one for head, one for command and one for tail */
-#define NUMBER_OF_ELEMENTS  (3UL)
+/* There are six elements - one for head, one for command and one for tail and then random data */
+#define NUMBER_OF_ELEMENTS  (6UL)
 #define SIZE_OF_ELEMENT     (1UL)
 #define SIZE_OF_PACKET      (NUMBER_OF_ELEMENTS * SIZE_OF_ELEMENT)
 
@@ -252,6 +263,24 @@ cy_en_scb_spi_status_t sendPacket(uint8_t *, uint32_t);
  * SPIM Global Variables
  ******************************************************************************/
 cy_stc_scb_spi_context_t mSPI_context;
+
+#endif
+
+#if ACTIVE_UART_ENABLED
+cy_stc_scb_uart_context_t CYBSP_UART_context;
+#endif
+
+// ACTIVEPRO firmware tool stuff ->>>>
+
+void ACTIVEValue( int channel, int value );          // Output a Value for this channel
+void ACTIVEText( int channel, char *string );        // Output Text for this channel
+void ACTIVEprintf( int channel, char *format, ... ); // printf-like function with variable argument list
+
+// Define helpful macros for sending debug command messages
+#define ACTIVELabel(channel,string)  ACTIVEText( (channel) , "?cmd=label&label=" string )
+#define ACTIVEBeep()  ACTIVEText( 0 , "?cmd=beep" )
+#define ACTIVEStop()  ACTIVEText( 0 , "?cmd=stop" )
+#define ACTIVERestart()  ACTIVEText( 0 , "?cmd=restart" )
 
 /*******************************************************************************
  * Function Name: main
@@ -273,11 +302,14 @@ int main(void)
     cy_rslt_t result;
     uint32_t capsense_state_timeout;
     uint32_t interruptStatus;
+
+	#if ACTIVE_SPIM_ENABLED
     cy_en_scb_spi_status_t status;
     uint32_t cmd_send = CYBSP_LED_STATE_OFF;
 
     /* Buffer to hold command packet to be sent to the slave by the master */
     uint8_t  txBuffer[NUMBER_OF_ELEMENTS];
+	#endif
 
     result = cybsp_init() ;
 
@@ -291,13 +323,22 @@ int main(void)
         CY_ASSERT(CY_ASSERT_FAILED);
     }
 
+	#if ACTIVE_SPIM_ENABLED
     /* Initialize the SPI Master */
     result = initMaster();
+
     /* Initialization failed. Stop program execution */
     if(result != INIT_SUCCESS)
     {
         CY_ASSERT(0);
     }
+	#endif
+
+	#if ACTIVE_UART_ENABLED
+    /* Configure and enable the UART peripheral */
+    Cy_SCB_UART_Init(CYBSP_UART_HW, &CYBSP_UART_config, &CYBSP_UART_context);
+    Cy_SCB_UART_Enable(CYBSP_UART_HW);
+	#endif
 
     /* Enable global interrupts */
     __enable_irq();
@@ -330,12 +371,20 @@ int main(void)
     /* Configure the MSCLP wake up timer as per the ACTIVE mode refresh rate */
     Cy_CapSense_ConfigureMsclpTimer(ACTIVE_MODE_TIMER, &cy_capsense_context);
 
+    /* ACTIVE Pro Firmware Development / Debugging Tool */
+    ACTIVERestart();
+
     for (;;)
     {
+//    	ACTIVELabel(0x0u,"State");
+
+    	ACTIVEValue(0x0u, capsense_state);
 
         switch(capsense_state)
         {
             case ACTIVE_MODE:
+
+            	ACTIVEText(0x1u, "ACTIVE");
 
                 Cy_CapSense_ScanAllSlots(&cy_capsense_context);
 
@@ -344,8 +393,10 @@ int main(void)
                 while (Cy_CapSense_IsBusy(&cy_capsense_context))
                 {
                     #if ENABLE_PWM_LED
+                	ACTIVEText(0x8u, "CpuSleep");
                     Cy_SysPm_CpuEnterSleep();
                     #else
+                    ACTIVEText(0x8u, "CpuDeepSleep");
                     Cy_SysPm_CpuEnterDeepSleep();
                     #endif
 
@@ -393,6 +444,7 @@ int main(void)
 
                 /* Active Low Refresh-rate Mode */
             case ALR_MODE :
+            	ACTIVEText(0x2u, "ALR");
 
                 Cy_CapSense_ScanAllSlots(&cy_capsense_context);
                 interruptStatus = Cy_SysLib_EnterCriticalSection();
@@ -457,6 +509,7 @@ int main(void)
 
                 /* Wake On Touch Mode */
             case WOT_MODE :
+            	ACTIVEText(0x3u, "WOT");
 
                 /* Scanning only those low-power slots needed for the specific configuration*/
                 Cy_CapSense_ScanLpSlots(LP_SLOT_START_ID, LP_SLOT_NUMBER, &cy_capsense_context);
@@ -465,6 +518,7 @@ int main(void)
 
                 while (Cy_CapSense_IsBusy(&cy_capsense_context))
                 {
+                	ACTIVEText(0x4u, "IsBusy");
                     Cy_SysPm_CpuEnterDeepSleep();
 
                     Cy_SysLib_ExitCriticalSection(interruptStatus);
@@ -519,14 +573,18 @@ int main(void)
         Cy_CapSense_RunTuner(&cy_capsense_context);
         #endif
 
+		#if ACTIVE_SPIM_ENABLED
         /* Toggle the current LED state */
         cmd_send = (cmd_send == CYBSP_LED_STATE_OFF) ? CYBSP_LED_STATE_ON :
                                                        CYBSP_LED_STATE_OFF;
 
-        /* Form the command packet */
-        txBuffer[PACKET_SOP_POS] = 0x55; //PACKET_SOP;
-        txBuffer[PACKET_CMD_POS] = 0x55; //cmd_send;
-        txBuffer[PACKET_EOP_POS] = 0x55; //PACKET_EOP;
+        /* Form the command + data packet */
+        txBuffer[PACKET_SOP_POS] = 0x7F;
+        txBuffer[PACKET_CMD_POS] = 0x3F;
+        txBuffer[PACKET_EOP_POS] = 0x40;
+        txBuffer[3UL] = 0x08; //
+        txBuffer[4UL] = 0x04; //
+        txBuffer[5UL] = 0x02; //
 
         /* Send the packet to the slave */
         status = sendPacket(txBuffer, SIZE_OF_PACKET);
@@ -534,6 +592,20 @@ int main(void)
         {
             CY_ASSERT(0);
         }
+		#endif
+
+		#if ACTIVE_GPIO_ENABLED
+        Cy_GPIO_Inv(ACTIVE_SPI_MOSI_PORT, ACTIVE_SPI_MOSI_PIN);
+        Cy_GPIO_Inv(ACTIVE_SPI_CLK_PORT, ACTIVE_SPI_CLK_PIN);
+		#endif
+
+		#if ACTIVE_UART_ENABLED
+        /* Send a string over serial terminal */
+//        Cy_SCB_UART_PutString(CYBSP_UART_HW, "Hello world\r\n");
+//        Cy_SCB_UART_Put(CYBSP_UART_HW, 0x7F);
+		#endif
+        Cy_GPIO_Inv(ACTIVE_SPI_MOSI_PORT, ACTIVE_SPI_MOSI_PIN);
+//        ACTIVEText(0x7u, "MAIN");
 
         /* Delay between commands */
 //        Cy_SysLib_Delay(1000);
@@ -732,12 +804,14 @@ void led_control()
             /* LED2 Turns ON when there is a touch detected on the CSD or CSX button*/
             Cy_GPIO_Write(CYBSP_USER_BTN_PORT, CYBSP_USER_BTN_NUM, CYBSP_LED_ON);
         }
+        ACTIVEText(0x5u, "ON");
     }
     else
     {
         /* Turn OFF LEDs */
         Cy_GPIO_Write(CYBSP_USER_BTN_PORT, CYBSP_USER_BTN_NUM, CYBSP_LED_OFF);
         Cy_TCPWM_PWM_SetCompare0(CYBSP_PWM_HW, CYBSP_PWM_NUM, 0);
+        ACTIVEText(0x6u, "OFF");
     }
 }
 #endif
@@ -816,6 +890,7 @@ cy_en_syspm_status_t deep_sleep_callback(
     return ret_val;
 }
 
+#if ACTIVE_SPIM_ENABLED
 /*******************************************************************************
  * Function Name: mSPI_Interrupt
  *******************************************************************************
@@ -917,5 +992,237 @@ cy_en_scb_spi_status_t sendPacket(uint8_t *txBuffer, uint32_t transferSize)
 
     return (masterStatus);
 }
+#endif
 
+// ACTIVEPRO firmware tool stuff ->>>>
+
+//************** MAKE YOUR CHANGES BELOW ONLY *************************
+// These defines are an example using the Cypress PSoC5LP Microcontroller
+
+#ifdef ACTIVE_DEBUG_ON
+
+// Change #1 - Add any includes that you need for the below defines of your hardware interface to the ACTIVE bus
+//#include "project.h"  // for PSoC Creator Projects
+
+// CHANGE #2 - Select the mode of the ACTIVE bus to use
+#define ACTIVE_ONE_WIRE_UART    // Uncomment this line to use a single wire (from a hardware UART) for the ACTIVE interface
+//#define ACTIVE_TWO_WIRE_SPI     // Uncomment this line to use two wires (from a hardware SPI block - Clock and Data) for the ACTIVE interface
+//#define ACTIVE_TWO_WIRE_GPIO      // Uncomment this line to use two wires (from standard GPIO - Clock and Data) for the ACTIVE interface
+
+#ifdef ACTIVE_TWO_WIRE_SPI
+// CHANGE #3 - FOR ACTIVE 2-wire SPI Mode:  Defines your routine name to send a single byte to the SPI block
+// The SPI block must be configured and enabled elsewhere in your firmware.
+    #define ACTIVESPITx(x)     SPIM_WriteTxData(x)
+#endif
+
+#ifdef ACTIVE_ONE_WIRE_UART
+// CHANGE #6 - FOR one wire (UART) ACTIVE Mode:  Defines your routine name to send a single byte to the UART
+// The UART must be configured and enabled elsewhere in your firmware.
+//    #define ACTIVEUartTx(x)     DBG_PutChar(x)
+    #define ACTIVEUartTx(x)     Cy_SCB_UART_Put(CYBSP_UART_HW, x);
+#endif
+
+#ifdef ACTIVE_TWO_WIRE_GPIO
+// CHANGE #3 - FOR ACTIVE 2-wire GPIO  Mode:  Defines that set the GPIO pins to High and Low levels and Toggles
+// These should be as fast as possible, but not faster than 20.8ns (48MHz)
+// These two GPIO are a Clock and a Data line.  They must be setup as outputs
+// elsewhere in your firmware during system initialization.
+#define ACTIVEClockLow       Cy_GPIO_Write(ACTIVE_SPI_CLK_PORT, ACTIVE_SPI_CLK_PIN, 0UL);
+#define ACTIVEClockHigh      Cy_GPIO_Write(ACTIVE_SPI_CLK_PORT, ACTIVE_SPI_CLK_PIN, 1UL);
+#define ACTIVEDataLow        Cy_GPIO_Write(ACTIVE_SPI_MOSI_PORT, ACTIVE_SPI_MOSI_PIN, 0UL);
+#define ACTIVEDataHigh       Cy_GPIO_Write(ACTIVE_SPI_MOSI_PORT, ACTIVE_SPI_MOSI_PIN, 1UL);
+#endif
+
+#define MAX_ACTIVE_LENGTH 255 // This defines the maximum length of any debug text message
+
+// CHANGE #7 - Type defines for your platform
+// Copy these function prototypes to your header files to define the API
+void ACTIVEValue( int channel, int value );             // Output a Value for this channel
+void ACTIVEText( int channel, char *string );           // Output Text for this channel
+void ACTIVEprintf( int channel, char *format, ... );    // printf-like function with variable argument list
+
+//************** MAKE YOUR CHANGES ABOVE ONLY *************************
+
+// Define the SendACTIVEByte Routine that sends bytes to the hardware interface
+#ifdef ACTIVE_ONE_WIRE_UART   // This is a 1-wire UART interface to your processors UART block
+
+void SendACTIVEByte( unsigned char value )
+{
+    ACTIVEUartTx( value );
+}
+#else
+#ifdef ACTIVE_TWO_WIRE_SPI   // This is a 2-wire SPI interface to your processors SPI block
+
+void SendACTIVEByte( unsigned char value )
+{
+    ACTIVESPITx( value );
+}
+#else
+#ifdef ACTIVE_TWO_WIRE_GPIO   // This is a 2-wire interface using GPIO pins
+void SendACTIVEByte( int value )
+{
+    if (value & 0x80) {ACTIVEDataHigh;} else {ACTIVEDataLow;} ACTIVEClockHigh; ACTIVEClockLow;
+    if (value & 0x40) {ACTIVEDataHigh;} else {ACTIVEDataLow;} ACTIVEClockHigh; ACTIVEClockLow;
+    if (value & 0x20) {ACTIVEDataHigh;} else {ACTIVEDataLow;} ACTIVEClockHigh; ACTIVEClockLow;
+    if (value & 0x10) {ACTIVEDataHigh;} else {ACTIVEDataLow;} ACTIVEClockHigh; ACTIVEClockLow;
+    if (value & 0x08) {ACTIVEDataHigh;} else {ACTIVEDataLow;} ACTIVEClockHigh; ACTIVEClockLow;
+    if (value & 0x04) {ACTIVEDataHigh;} else {ACTIVEDataLow;} ACTIVEClockHigh; ACTIVEClockLow;
+    if (value & 0x02) {ACTIVEDataHigh;} else {ACTIVEDataLow;} ACTIVEClockHigh; ACTIVEClockLow;
+    if (value & 0x01) {ACTIVEDataHigh;} else {ACTIVEDataLow;} ACTIVEClockHigh; ACTIVEClockLow;
+}
+#endif
+#endif
+#endif
+
+//===============================================================================================
+// Define the basic Value and Text ACTIVE Message transmit routines
+//===============================================================================================
+
+//void ACTIVEValue( int channel, int value )
+//{
+////    ControlValueText_Write(5);
+//	SendACTIVEByte( 0x7F );             // Every ACTIVE packet starts with a 0x7F
+//	SendACTIVEByte( channel & 0x3F );	// Type and Channel: Bit 7=0, Bit 6=0 Means Value, Bits 5:0 means the channel (0-63)
+//
+//    while(value & 0xFFFFFFC0)           // Send out the bits of the value.
+//    {
+//        SendACTIVEByte( value & 0x3F ); // Bit 7=0, Bit 6=0 means not the last byte, Bits 5:0 are the next 6 LSBs of the value
+//        value = value >> 6;
+//    }
+//   SendACTIVEByte( value | 0x40 );     // Bit 7=0, Bit 6=1 means the last byte, Bits 5:0 are the next 6 LSBs of the value
+//}
+
+#ifdef ACTIVE_TWO_WIRE_SPI
+void ACTIVEValue( int channel, int value )
+{
+    char done = 0;
+    char positive;
+
+    /* Wait until TX FIFO has a place */
+
+    while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
+    CY_SET_REG8(SPIM_TXDATA_PTR, ( 0x7F ));             // Every ACTIVE packet starts with a 0x7F
+    while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
+    CY_SET_REG8(SPIM_TXDATA_PTR, ( channel & 0x3F ));   // Type and Channel: Bit 7=0, Bit 6=0 Means Value, Bits 5:0 means the channel (0-63)
+
+    if (value >= 0)     // Positive values
+        positive = 1;
+    else
+        positive = 0;
+
+    while(!done)
+    {
+        if ((positive && (value >= 32)) || (!positive && (value < -32)))
+        {
+            while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
+            CY_SET_REG8(SPIM_TXDATA_PTR, ( value & 0x3F )); // Bit 7=0, Bit 6=0 means not the last byte, Bits 5:0 are the next 6 LSBs of the value
+            value = value >> 6;
+        }
+        else
+        {
+            while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
+            CY_SET_REG8(SPIM_TXDATA_PTR, ( (value & 0x3F ) | 0x40 ));     // Bit 7=0, Bit 6=1 means the last byte, Bits 5:0 are the next 6 LSBs of the value
+            done = 1;
+        }
+    }
+}
+
+
+
+void ACTIVEText( int channel, char *string )
+{
+    int bytes = 2;
+
+//    ControlValueText_Write(10);
+
+    /* Wait until TX FIFO has a place */
+
+    while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
+    CY_SET_REG8(SPIM_TXDATA_PTR, ( 0x7F ));                     // Every ACTIVE packet starts with a 0x7F
+	while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
+    CY_SET_REG8(SPIM_TXDATA_PTR, ( 0x40 | (channel & 0x3F) ));	// Type and Channel: Bit 7=0, Bit 6=1 Means Text, Bits 5:0 means the channel (0-63)
+
+    while(*string)
+    {
+        if (bytes++ > MAX_ACTIVE_LENGTH)
+            break;
+        while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
+        CY_SET_REG8(SPIM_TXDATA_PTR, ( *string & 0x7F ));     // Send the ascii characters
+        string++;
+
+    }
+    while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
+    CY_SET_REG8(SPIM_TXDATA_PTR, ( 0 ));                        // Terminate the string
+}
+#else
+void ACTIVEValue( int channel, int value )
+{
+    char done = 0;
+    char positive;
+
+	SendACTIVEByte( 0x7F );             // Every ACTIVE packet starts with a 0x7F
+	SendACTIVEByte( channel & 0x3F );   // Type and Channel: Bit 7=0, Bit 6=0 Means Value, Bits 5:0 means the channel (0-63)
+
+    if (value >= 0)     // Positive values
+        positive = 1;
+    else
+        positive = 0;
+
+    while(!done)
+    {
+        if ((positive && (value >= 32)) || (!positive && (value < -32)))
+        {
+            SendACTIVEByte( value & 0x3F ); // Bit 7=0, Bit 6=0 means not the last byte, Bits 5:0 are the next 6 LSBs of the value
+            value = value >> 6;
+        }
+        else
+        {
+            SendACTIVEByte( (value & 0x3F ) | 0x40 );     // Bit 7=0, Bit 6=1 means the last byte, Bits 5:0 are the next 6 LSBs of the value
+            done = 1;
+        }
+    }
+}
+
+
+
+void ACTIVEText( int channel, char *string )
+{
+    int bytes = 2;
+
+    SendACTIVEByte( 0x7F );                     // Every ACTIVE packet starts with a 0x7F
+	SendACTIVEByte( 0x40 | (channel & 0x3F) );	// Type and Channel: Bit 7=0, Bit 6=1 Means Text, Bits 5:0 means the channel (0-63)
+
+    while(*string)
+    {
+        if (bytes++ > MAX_ACTIVE_LENGTH)
+            break;
+        SendACTIVEByte( *string & 0x7F );     // Send the ascii characters
+        string++;
+
+    }
+    SendACTIVEByte( 0 );                        // Terminate the string
+}
+#endif
+
+//===============================================================================================
+// Define the printf-like ACTIVE message routine
+//===============================================================================================
+
+#include "stdio.h"
+#include <stdarg.h>   // va_list, va_start, and va_end
+char ACTIVEstr[MAX_ACTIVE_LENGTH];
+void ACTIVEprintf( int channel, char *format, ... )
+{
+    va_list arglist;
+    va_start( arglist, format );
+    vsprintf( ACTIVEstr, format, arglist );
+    va_end( arglist );
+    ACTIVEText( channel, ACTIVEstr );
+};
+
+#else       // ACTIVE Debug is turned off, so make empty stubs for all routines
+void ACTIVEText( int channel, char *string ) {};
+void ACTIVEValue( int channel, int value ) {};
+void ACTIVEprintf( int channel, char *format, ... ) {};
+#endif
 /* [] END OF FILE */
