@@ -139,6 +139,7 @@ program.log
 images/
 .cache/
 active/
+docs/
 
 # Created by git when using merge tools for conflicts
 *.BACKUP.*

@@ -518,7 +518,7 @@ int main(void)
 
                 while (Cy_CapSense_IsBusy(&cy_capsense_context))
                 {
-                	ACTIVEText(0x4u, "IsBusy");
+//                	ACTIVEText(0x4u, "IsBusy");
                     Cy_SysPm_CpuEnterDeepSleep();
 
                     Cy_SysLib_ExitCriticalSection(interruptStatus);
@@ -571,32 +571,34 @@ int main(void)
         #if ENABLE_TUNER
         /* Establishes synchronized communication with the CAPSENSE&trade; Tuner tool */
         Cy_CapSense_RunTuner(&cy_capsense_context);
+        ACTIVEValue(0x0Au, cy_capsense_tuner.sensorContext[2u].diff); //CY_CAPSENSE_BUTTON0_WDGT_ID
+        ACTIVEValue(0x0Bu, cy_capsense_tuner.sensorContext[3u].diff); //CY_CAPSENSE_BUTTON1_WDGT_ID
         #endif
 
 		#if ACTIVE_SPIM_ENABLED
-        /* Toggle the current LED state */
-        cmd_send = (cmd_send == CYBSP_LED_STATE_OFF) ? CYBSP_LED_STATE_ON :
-                                                       CYBSP_LED_STATE_OFF;
-
-        /* Form the command + data packet */
-        txBuffer[PACKET_SOP_POS] = 0x7F;
-        txBuffer[PACKET_CMD_POS] = 0x3F;
-        txBuffer[PACKET_EOP_POS] = 0x40;
-        txBuffer[3UL] = 0x08; //
-        txBuffer[4UL] = 0x04; //
-        txBuffer[5UL] = 0x02; //
-
-        /* Send the packet to the slave */
-        status = sendPacket(txBuffer, SIZE_OF_PACKET);
-        if(status != CY_SCB_SPI_SUCCESS)
-        {
-            CY_ASSERT(0);
-        }
+//        /* Toggle the current LED state */
+//        cmd_send = (cmd_send == CYBSP_LED_STATE_OFF) ? CYBSP_LED_STATE_ON :
+//                                                       CYBSP_LED_STATE_OFF;
+//
+//        /* Form the command + data packet */
+//        txBuffer[PACKET_SOP_POS] = 0x7F;
+//        txBuffer[PACKET_CMD_POS] = 0x3F;
+//        txBuffer[PACKET_EOP_POS] = 0x40;
+//        txBuffer[3UL] = 0x08; //
+//        txBuffer[4UL] = 0x04; //
+//        txBuffer[5UL] = 0x02; //
+//
+//        /* Send the packet to the slave */
+//        status = sendPacket(txBuffer, SIZE_OF_PACKET);
+//        if(status != CY_SCB_SPI_SUCCESS)
+//        {
+//            CY_ASSERT(0);
+//        }
 		#endif
 
 		#if ACTIVE_GPIO_ENABLED
-        Cy_GPIO_Inv(ACTIVE_SPI_MOSI_PORT, ACTIVE_SPI_MOSI_PIN);
-        Cy_GPIO_Inv(ACTIVE_SPI_CLK_PORT, ACTIVE_SPI_CLK_PIN);
+//        Cy_GPIO_Inv(ACTIVE_SPI_MOSI_PORT, ACTIVE_SPI_MOSI_PIN);
+//        Cy_GPIO_Inv(ACTIVE_SPI_CLK_PORT, ACTIVE_SPI_CLK_PIN);
 		#endif
 
 		#if ACTIVE_UART_ENABLED
@@ -604,8 +606,6 @@ int main(void)
 //        Cy_SCB_UART_PutString(CYBSP_UART_HW, "Hello world\r\n");
 //        Cy_SCB_UART_Put(CYBSP_UART_HW, 0x7F);
 		#endif
-        Cy_GPIO_Inv(ACTIVE_SPI_MOSI_PORT, ACTIVE_SPI_MOSI_PIN);
-//        ACTIVEText(0x7u, "MAIN");
 
         /* Delay between commands */
 //        Cy_SysLib_Delay(1000);
@@ -803,8 +803,8 @@ void led_control()
         {
             /* LED2 Turns ON when there is a touch detected on the CSD or CSX button*/
             Cy_GPIO_Write(CYBSP_USER_BTN_PORT, CYBSP_USER_BTN_NUM, CYBSP_LED_ON);
+            ACTIVEText(0x5u, "ON");
         }
-        ACTIVEText(0x5u, "ON");
     }
     else
     {
@@ -1019,7 +1019,7 @@ cy_en_scb_spi_status_t sendPacket(uint8_t *txBuffer, uint32_t transferSize)
 // CHANGE #6 - FOR one wire (UART) ACTIVE Mode:  Defines your routine name to send a single byte to the UART
 // The UART must be configured and enabled elsewhere in your firmware.
 //    #define ACTIVEUartTx(x)     DBG_PutChar(x)
-    #define ACTIVEUartTx(x)     Cy_SCB_UART_Put(CYBSP_UART_HW, x);
+    #define ACTIVEUartTx(x)     while(!Cy_SCB_UART_Put(CYBSP_UART_HW, x));
 #endif
 
 #ifdef ACTIVE_TWO_WIRE_GPIO
