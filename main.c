@@ -55,9 +55,9 @@
  ********************************************************************************/
 
 /* enable only one (1) physical interface below for ACTIVE PRO, adjust SCB0 accordingly */
-#define ACTIVE_SPIM_ENABLED				(0u)
+#define ACTIVE_UART_ENABLED				(0u)
+#define ACTIVE_SPIM_ENABLED				(1u)
 #define ACTIVE_GPIO_ENABLED				(0u)
-#define ACTIVE_UART_ENABLED				(1u)
 
 /* Comment this line out to remove all ACTIVE Debug output from your project */
 #define ACTIVE_DEBUG_ON
@@ -1005,14 +1005,14 @@ cy_en_scb_spi_status_t sendPacket(uint8_t *txBuffer, uint32_t transferSize)
 //#include "project.h"  // for PSoC Creator Projects
 
 // CHANGE #2 - Select the mode of the ACTIVE bus to use
-#define ACTIVE_ONE_WIRE_UART    // Uncomment this line to use a single wire (from a hardware UART) for the ACTIVE interface
-//#define ACTIVE_TWO_WIRE_SPI     // Uncomment this line to use two wires (from a hardware SPI block - Clock and Data) for the ACTIVE interface
+//#define ACTIVE_ONE_WIRE_UART    // Uncomment this line to use a single wire (from a hardware UART) for the ACTIVE interface
+#define ACTIVE_TWO_WIRE_SPI     // Uncomment this line to use two wires (from a hardware SPI block - Clock and Data) for the ACTIVE interface
 //#define ACTIVE_TWO_WIRE_GPIO      // Uncomment this line to use two wires (from standard GPIO - Clock and Data) for the ACTIVE interface
 
 #ifdef ACTIVE_TWO_WIRE_SPI
 // CHANGE #3 - FOR ACTIVE 2-wire SPI Mode:  Defines your routine name to send a single byte to the SPI block
 // The SPI block must be configured and enabled elsewhere in your firmware.
-    #define ACTIVESPITx(x)     SPIM_WriteTxData(x)
+    #define ACTIVESPITx(x)     while(!Cy_SCB_Write(mSPI_HW, x));
 #endif
 
 #ifdef ACTIVE_ONE_WIRE_UART
@@ -1092,7 +1092,7 @@ void SendACTIVEByte( int value )
 //   SendACTIVEByte( value | 0x40 );     // Bit 7=0, Bit 6=1 means the last byte, Bits 5:0 are the next 6 LSBs of the value
 //}
 
-#ifdef ACTIVE_TWO_WIRE_SPI
+#ifdef ACTIVE_TWO_WIRE_SPI_ALT
 void ACTIVEValue( int channel, int value )
 {
     char done = 0;
