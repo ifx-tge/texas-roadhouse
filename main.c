@@ -1034,6 +1034,7 @@ cy_en_scb_spi_status_t sendPacket(uint8_t *txBuffer, uint32_t transferSize)
 #endif
 
 #define MAX_ACTIVE_LENGTH 255 // This defines the maximum length of any debug text message
+unsigned char ACTIVETxBuffer[MAX_ACTIVE_LENGTH];    // Holds the debug packet as it is being built
 
 // CHANGE #7 - Type defines for your platform
 // Copy these function prototypes to your header files to define the API
@@ -1056,6 +1057,15 @@ void SendACTIVEByte( unsigned char value )
 void SendACTIVEByte( unsigned char value )
 {
     ACTIVESPITx( value );
+}
+
+// CHANGE #3:  Modify this routine to send an array of bytes to the the ACTIVE Debug Interface
+void SendACTIVEPacket( unsigned char *data, int length )   // This routine is used to send a packet to the ACTIVE Debug Interface
+{
+    // Send the packet out the wires.  Choose the one type you have selected for this processor.
+
+    // 2-wire SPI Interface
+	Cy_SCB_WriteArrayBlocking( mSPI_HW, data, length );
 }
 #else
 #ifdef ACTIVE_TWO_WIRE_GPIO   // This is a 2-wire interface using GPIO pins
@@ -1092,67 +1102,56 @@ void SendACTIVEByte( int value )
 //   SendACTIVEByte( value | 0x40 );     // Bit 7=0, Bit 6=1 means the last byte, Bits 5:0 are the next 6 LSBs of the value
 //}
 
-#ifdef ACTIVE_TWO_WIRE_SPI_ALT
+#ifdef ACTIVE_TWO_WIRE_SPI
 void ACTIVEValue( int channel, int value )
 {
+    int length = 0;
     char done = 0;
-    char positive;
+    char positive = (value >= 0);
 
-    /* Wait until TX FIFO has a place */
+    // Assemble the ACTIVE Value Packet
 
-    while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
-    CY_SET_REG8(SPIM_TXDATA_PTR, ( 0x7F ));             // Every ACTIVE packet starts with a 0x7F
-    while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
-    CY_SET_REG8(SPIM_TXDATA_PTR, ( channel & 0x3F ));   // Type and Channel: Bit 7=0, Bit 6=0 Means Value, Bits 5:0 means the channel (0-63)
-
-    if (value >= 0)     // Positive values
-        positive = 1;
-    else
-        positive = 0;
+    ACTIVETxBuffer[length++] = 0x7F;           // Every ACTIVE packet starts with a 0x7F
+    ACTIVETxBuffer[length++] = channel & 0x3F; // Type and Channel: Bit 7=0, Bit 6=0 Means Value, Bits 5:0 means the channel (0-63)
 
     while(!done)
     {
         if ((positive && (value >= 32)) || (!positive && (value < -32)))
         {
-            while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
-            CY_SET_REG8(SPIM_TXDATA_PTR, ( value & 0x3F )); // Bit 7=0, Bit 6=0 means not the last byte, Bits 5:0 are the next 6 LSBs of the value
+            ACTIVETxBuffer[length++] = value & 0x3F;
             value = value >> 6;
         }
         else
         {
-            while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
-            CY_SET_REG8(SPIM_TXDATA_PTR, ( (value & 0x3F ) | 0x40 ));     // Bit 7=0, Bit 6=1 means the last byte, Bits 5:0 are the next 6 LSBs of the value
+            ACTIVETxBuffer[length++] =  (value & 0x3F ) | 0x40;
             done = 1;
         }
     }
+
+    // Now actually send the packet to the Active-Pro
+    SendACTIVEPacket(ACTIVETxBuffer, length);
 }
-
-
 
 void ACTIVEText( int channel, char *string )
 {
-    int bytes = 2;
+    int length = 0;
 
-//    ControlValueText_Write(10);
-
-    /* Wait until TX FIFO has a place */
-
-    while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
-    CY_SET_REG8(SPIM_TXDATA_PTR, ( 0x7F ));                     // Every ACTIVE packet starts with a 0x7F
-	while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
-    CY_SET_REG8(SPIM_TXDATA_PTR, ( 0x40 | (channel & 0x3F) ));	// Type and Channel: Bit 7=0, Bit 6=1 Means Text, Bits 5:0 means the channel (0-63)
+    ACTIVETxBuffer[length++] = 0x7F;   // Every ACTIVE packet starts with a 0x7F
+    ACTIVETxBuffer[length++] = 0x40 | (channel & 0x3F); // Type and Channel: Bit 7=0, Bit 6=1 Means Text, Bits 5:0 means the channel (0-63)
 
     while(*string)
     {
-        if (bytes++ > MAX_ACTIVE_LENGTH)
+        if (length >= MAX_ACTIVE_LENGTH-1)
             break;
-        while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
-        CY_SET_REG8(SPIM_TXDATA_PTR, ( *string & 0x7F ));     // Send the ascii characters
+        ACTIVETxBuffer[length++] = *string & 0x7F;     // Send the ascii characters
         string++;
 
     }
-    while(0u == (SPIM_TX_STATUS_REG & SPIM_STS_TX_FIFO_NOT_FULL)){;}
-    CY_SET_REG8(SPIM_TXDATA_PTR, ( 0 ));                        // Terminate the string
+    ACTIVETxBuffer[length++] = 0;     // Send the string termination
+
+    // Now actually send the packet to the Active-Pro
+    SendACTIVEPacket(ACTIVETxBuffer, length);
+
 }
 #else
 void ACTIVEValue( int channel, int value )
