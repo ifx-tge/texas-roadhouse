@@ -62,14 +62,14 @@
 /* Comment this line out to remove all ACTIVE Debug output from your project */
 #define ACTIVE_DEBUG_ON
 
-/* Enables the Runtime measurement functionality used to for processing time measurement */
-#define ENABLE_RUN_TIME_MEASUREMENT     (0u)
+/* Enables the Runtime measurement functionality used for processing time measurement */
+#define ENABLE_RUN_TIME_MEASUREMENT     (1u)
 
 /* Enable this, if Tuner needs to be enabled */
 #define ENABLE_TUNER                    (1u)
 
 /* Enable PWM controlled LEDs */
-#define ENABLE_PWM_LED                  (1u)
+#define ENABLE_PWM_LED                  (0u)
 
 /* 128Hz (7.8125msec) Refresh rate in Active mode */
 #define ACTIVE_MODE_REFRESH_RATE        (128u)
@@ -304,11 +304,11 @@ int main(void)
     uint32_t interruptStatus;
 
 	#if ACTIVE_SPIM_ENABLED
-    cy_en_scb_spi_status_t status;
-    uint32_t cmd_send = CYBSP_LED_STATE_OFF;
-
-    /* Buffer to hold command packet to be sent to the slave by the master */
-    uint8_t  txBuffer[NUMBER_OF_ELEMENTS];
+//    cy_en_scb_spi_status_t status;
+//    uint32_t cmd_send = CYBSP_LED_STATE_OFF;
+//
+//    /* Buffer to hold command packet to be sent to the slave by the master */
+//    uint8_t  txBuffer[NUMBER_OF_ELEMENTS];
 	#endif
 
     result = cybsp_init() ;
@@ -394,7 +394,7 @@ int main(void)
                 {
                     #if ENABLE_PWM_LED
                 	ACTIVEText(0x8u, "CpuSleep");
-                    Cy_SysPm_CpuEnterSleep();
+                	Cy_SysPm_CpuEnterSleep();
                     #else
                     ACTIVEText(0x8u, "CpuDeepSleep");
                     Cy_SysPm_CpuEnterDeepSleep();
@@ -405,6 +405,7 @@ int main(void)
                     /* This is a place where all interrupt handlers will be executed */
                     interruptStatus = Cy_SysLib_EnterCriticalSection();
                 }
+                ACTIVEText(0x1u, "WAKE");
 
                 #if ENABLE_RUN_TIME_MEASUREMENT
                 uint32_t active_processing_time=0;
@@ -437,6 +438,7 @@ int main(void)
 
                 #if ENABLE_RUN_TIME_MEASUREMENT
                 active_processing_time=stop_runtime_measurement();
+                ACTIVEValue(0x0Cu, active_processing_time);
                 #endif
 
                 break;
@@ -452,8 +454,10 @@ int main(void)
                 while (Cy_CapSense_IsBusy(&cy_capsense_context))
                 {
                     #if ENABLE_PWM_LED
+                	ACTIVEText(0x8u, "CpuSleep");
                     Cy_SysPm_CpuEnterSleep();
                     #else
+                    ACTIVEText(0x8u, "CpuDeepSleep");
                     Cy_SysPm_CpuEnterDeepSleep();
                     #endif
 
@@ -462,6 +466,8 @@ int main(void)
                     /* This is a place where all interrupt handlers will be executed */
                     interruptStatus = Cy_SysLib_EnterCriticalSection();
                 }
+
+                ACTIVEText(0x2u, "WAKE");
 
                 Cy_SysLib_ExitCriticalSection(interruptStatus);
 
@@ -501,7 +507,8 @@ int main(void)
                 }
 
 #if ENABLE_RUN_TIME_MEASUREMENT
-                alr_processing_time=stop_runtime_measurement();
+                alr_processing_time = stop_runtime_measurement();
+                ACTIVEValue(0x0Du, alr_processing_time);
 #endif
 
                 break;
@@ -518,7 +525,7 @@ int main(void)
 
                 while (Cy_CapSense_IsBusy(&cy_capsense_context))
                 {
-//                	ACTIVEText(0x4u, "IsBusy");
+                	ACTIVEText(0x8u, "CpuDeepSleepWOT");
                     Cy_SysPm_CpuEnterDeepSleep();
 
                     Cy_SysLib_ExitCriticalSection(interruptStatus);
@@ -526,6 +533,8 @@ int main(void)
                     /* This is a place where all interrupt handlers will be executed */
                     interruptStatus = Cy_SysLib_EnterCriticalSection();
                 }
+
+                ACTIVEText(0x3u, "WAKE");
 
                 Cy_SysLib_ExitCriticalSection(interruptStatus);
 
