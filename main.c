@@ -133,10 +133,10 @@
 #define TIME_PER_TICK_IN_US         ((float)1/CY_CAPSENSE_CPU_CLK)*TIME_IN_US
 #endif
 
-#if ENABLE_PWM_LED
+//#if ENABLE_PWM_LED
 #define CYBSP_LED_OFF                   (0u)
 #define CYBSP_LED_ON                    (1u)
-#endif
+//#endif
 
 #define LP_SLOT_START_ID                (0u)
 #define LP_SLOT_NUMBER                  (1u)
@@ -393,10 +393,10 @@ int main(void)
                 while (Cy_CapSense_IsBusy(&cy_capsense_context))
                 {
                     #if ENABLE_PWM_LED
-                	ACTIVEText(0x8u, "CpuSleep");
+                	ACTIVEText(0x8u, "CpuSleepACT");
                 	Cy_SysPm_CpuEnterSleep();
                     #else
-                    ACTIVEText(0x8u, "CpuDeepSleep");
+                    ACTIVEText(0x8u, "CpuDeepSleepACT");
                     Cy_SysPm_CpuEnterDeepSleep();
                     #endif
 
@@ -424,6 +424,7 @@ int main(void)
                 else
                 {
                     capsense_state_timeout--;
+                    ACTIVEValue(0x01u, capsense_state_timeout);
 
                     if(TIMEOUT_RESET == capsense_state_timeout)
                     {
@@ -454,10 +455,10 @@ int main(void)
                 while (Cy_CapSense_IsBusy(&cy_capsense_context))
                 {
                     #if ENABLE_PWM_LED
-                	ACTIVEText(0x8u, "CpuSleep");
+                	ACTIVEText(0x8u, "CpuSleepALR");
                     Cy_SysPm_CpuEnterSleep();
                     #else
-                    ACTIVEText(0x8u, "CpuDeepSleep");
+                    ACTIVEText(0x8u, "CpuDeepSleepALR");
                     Cy_SysPm_CpuEnterDeepSleep();
                     #endif
 
@@ -499,6 +500,7 @@ int main(void)
                 else
                 {
                     capsense_state_timeout--;
+                    ACTIVEValue(0x02u, capsense_state_timeout);
 
                     if(TIMEOUT_RESET == capsense_state_timeout)
                     {
@@ -573,9 +575,9 @@ int main(void)
                 break;
         }
 
-        #if ENABLE_PWM_LED
+//        #if ENABLE_PWM_LED
         led_control();
-        #endif
+//        #endif
 
         #if ENABLE_TUNER
         /* Establishes synchronized communication with the CAPSENSE&trade; Tuner tool */
@@ -776,7 +778,7 @@ static uint32_t stop_runtime_measurement()
 }
 #endif
 
-#if ENABLE_PWM_LED
+//#if ENABLE_PWM_LED
 /*******************************************************************************
  * Function Name: led_control
  ********************************************************************************
@@ -819,11 +821,11 @@ void led_control()
     {
         /* Turn OFF LEDs */
         Cy_GPIO_Write(CYBSP_USER_BTN_PORT, CYBSP_USER_BTN_NUM, CYBSP_LED_OFF);
-        Cy_TCPWM_PWM_SetCompare0(CYBSP_PWM_HW, CYBSP_PWM_NUM, 0);
+//        Cy_TCPWM_PWM_SetCompare0(CYBSP_PWM_HW, CYBSP_PWM_NUM, 0);
         ACTIVEText(0x6u, "OFF");
     }
 }
-#endif
+//#endif
 
 /*******************************************************************************
  * Function Name: register_callback
