@@ -54,12 +54,18 @@
  * User configurable Macros
  ********************************************************************************/
 
-/* enable only one (1) physical interface below for ACTIVE PRO, adjust SCB0 accordingly */
+/* TGE enable only one (1) physical interface below for ACTIVE PRO, adjust SCB0 accordingly */
 #define ACTIVE_UART_ENABLED				(0u)
 #define ACTIVE_SPIM_ENABLED				(1u)
 #define ACTIVE_GPIO_ENABLED				(0u)
 
-/* Comment this line out to remove all ACTIVE Debug output from your project */
+/* TGE */
+#define CPU_ENTER_SLEEP					(0u)
+
+/* TGE */
+#define MSCLP_WAKE_UP_TIMER_ENABLED		(0u)
+
+/* TGE Comment this line out to remove all ACTIVE Debug output from your project */
 #define ACTIVE_DEBUG_ON
 
 /* Enables the Runtime measurement functionality used for processing time measurement */
@@ -282,6 +288,8 @@ void ACTIVEprintf( int channel, char *format, ... ); // printf-like function wit
 #define ACTIVEStop()  ACTIVEText( 0 , "?cmd=stop" )
 #define ACTIVERestart()  ACTIVEText( 0 , "?cmd=restart" )
 
+void start_sample_callback_function(cy_stc_active_scan_sns_t * ptrActiveScan);
+
 /*******************************************************************************
  * Function Name: main
  ********************************************************************************
@@ -343,6 +351,11 @@ int main(void)
     /* Enable global interrupts */
     __enable_irq();
 
+    /* Register the Start_Sample callback for CapSense */
+    Cy_CapSense_RegisterCallback(CY_CAPSENSE_START_SAMPLE_E,
+        start_sample_callback_function,
+        &cy_capsense_context);
+
     /* Initialize EZI2C */
     initialize_capsense_tuner();
 
@@ -365,14 +378,17 @@ int main(void)
     /* Initialize MSC CAPSENSE&trade; */
     initialize_capsense();
 
+#if MSCLP_WAKE_UP_TIMER_ENABLED
     /* Measures the actual ILO frequency and compensate MSCLP wake up timers */
     Cy_CapSense_IloCompensate(&cy_capsense_context);
 
+
     /* Configure the MSCLP wake up timer as per the ACTIVE mode refresh rate */
     Cy_CapSense_ConfigureMsclpTimer(ACTIVE_MODE_TIMER, &cy_capsense_context);
+#endif
 
     /* ACTIVE Pro Firmware Development / Debugging Tool */
-    ACTIVERestart();
+//    ACTIVERestart();
 
     for (;;)
     {
@@ -386,12 +402,29 @@ int main(void)
 
             	ACTIVEText(0x1u, "ACTIVE");
 
+				#if ENABLE_RUN_TIME_MEASUREMENT_SCAN
+				uint32_t active_scan_time = 0;
+				ACTIVEValue(0x10u, active_scan_time);
+				start_runtime_measurement();
+				#endif
+
+            	// Cy_CapSense_ScanAllSlots() is non-blocking
                 Cy_CapSense_ScanAllSlots(&cy_capsense_context);
+
+				#if ENABLE_RUN_TIME_MEASUREMENT_SCAN
+                Cy_CapSense_ScanAllWidgets(&cy_capsense_context);
+                while (Cy_CapSense_IsBusy(&cy_capsense_context));
+                Cy_CapSense_ProcessAllWidgets(&cy_capsense_context);
+                active_scan_time = stop_runtime_measurement();
+				ACTIVEValue(0x10u, active_scan_time);
+				continue;
+				#endif
 
                 interruptStatus = Cy_SysLib_EnterCriticalSection();
 
                 while (Cy_CapSense_IsBusy(&cy_capsense_context))
                 {
+#if CPU_ENTER_SLEEP
                     #if ENABLE_PWM_LED
                 	ACTIVEText(0x8u, "CpuSleepACT");
                 	Cy_SysPm_CpuEnterSleep();
@@ -399,20 +432,23 @@ int main(void)
                     ACTIVEText(0x8u, "CpuDeepSleepACT");
                     Cy_SysPm_CpuEnterDeepSleep();
                     #endif
+#endif
 
                     Cy_SysLib_ExitCriticalSection(interruptStatus);
 
                     /* This is a place where all interrupt handlers will be executed */
                     interruptStatus = Cy_SysLib_EnterCriticalSection();
                 }
-                ACTIVEText(0x1u, "WAKE");
-
-                #if ENABLE_RUN_TIME_MEASUREMENT
-                uint32_t active_processing_time=0;
-                start_runtime_measurement();
-                #endif
 
                 Cy_SysLib_ExitCriticalSection(interruptStatus);
+
+                ACTIVEText(0x1u, "WAKE");
+
+				#if ENABLE_RUN_TIME_MEASUREMENT
+				uint32_t active_processing_time = 0;
+				ACTIVEValue(0x0Cu, active_processing_time);
+				start_runtime_measurement();
+				#endif
 
                 Cy_CapSense_ProcessAllWidgets(&cy_capsense_context);
 
@@ -423,6 +459,7 @@ int main(void)
                 }
                 else
                 {
+#if MSCLP_WAKE_UP_TIMER_ENABLED
                     capsense_state_timeout--;
                     ACTIVEValue(0x01u, capsense_state_timeout);
 
@@ -435,6 +472,7 @@ int main(void)
                         /* Configure the MSCLP wake up timer as per the ALR mode refresh rate */
                         Cy_CapSense_ConfigureMsclpTimer(ALR_MODE_TIMER, &cy_capsense_context);
                     }
+#endif
                 }
 
                 #if ENABLE_RUN_TIME_MEASUREMENT
@@ -454,6 +492,7 @@ int main(void)
 
                 while (Cy_CapSense_IsBusy(&cy_capsense_context))
                 {
+#if CPU_ENTER_SLEEP
                     #if ENABLE_PWM_LED
                 	ACTIVEText(0x8u, "CpuSleepALR");
                     Cy_SysPm_CpuEnterSleep();
@@ -461,6 +500,7 @@ int main(void)
                     ACTIVEText(0x8u, "CpuDeepSleepALR");
                     Cy_SysPm_CpuEnterDeepSleep();
                     #endif
+#endif
 
                     Cy_SysLib_ExitCriticalSection(interruptStatus);
 
@@ -468,12 +508,13 @@ int main(void)
                     interruptStatus = Cy_SysLib_EnterCriticalSection();
                 }
 
-                ACTIVEText(0x2u, "WAKE");
-
                 Cy_SysLib_ExitCriticalSection(interruptStatus);
 
+                ACTIVEText(0x2u, "WAKE");
+
                 #if ENABLE_RUN_TIME_MEASUREMENT
-                uint32_t alr_processing_time=0;
+                uint32_t alr_processing_time = 0;
+                ACTIVEValue(0x0Du, alr_processing_time);
                 start_runtime_measurement();
                 #endif
 
@@ -493,12 +534,14 @@ int main(void)
                     /* Then start the PWM */
                     Cy_TCPWM_TriggerReloadOrIndex(CYBSP_PWM_HW, CYBSP_PWM_MASK);
                     #endif
-
+#if MSCLP_WAKE_UP_TIMER_ENABLED
                     /* Configure the MSCLP wake up timer as per the ACTIVE mode refresh rate */
                     Cy_CapSense_ConfigureMsclpTimer(ACTIVE_MODE_TIMER, &cy_capsense_context);
+#endif
                 }
                 else
                 {
+#if MSCLP_WAKE_UP_TIMER_ENABLED
                     capsense_state_timeout--;
                     ACTIVEValue(0x02u, capsense_state_timeout);
 
@@ -506,6 +549,7 @@ int main(void)
                     {
                         capsense_state = WOT_MODE;
                     }
+#endif
                 }
 
 #if ENABLE_RUN_TIME_MEASUREMENT
@@ -527,15 +571,18 @@ int main(void)
 
                 while (Cy_CapSense_IsBusy(&cy_capsense_context))
                 {
+#if CPU_ENTER_SLEEP
                 	ACTIVEText(0x8u, "CpuDeepSleepWOT");
                     Cy_SysPm_CpuEnterDeepSleep();
-
+#endif
                     Cy_SysLib_ExitCriticalSection(interruptStatus);
 
                     /* This is a place where all interrupt handlers will be executed */
                     interruptStatus = Cy_SysLib_EnterCriticalSection();
                 }
 
+                // 10 seconds of "WOT" to WAKE comes from Wake On Touch settings in capsense configurator
+                // 62500 usec for WOT's scan interval and 160 frames in WOT
                 ACTIVEText(0x3u, "WAKE");
 
                 Cy_SysLib_ExitCriticalSection(interruptStatus);
@@ -553,17 +600,19 @@ int main(void)
                     /* Then start the PWM */
                     Cy_TCPWM_TriggerReloadOrIndex(CYBSP_PWM_HW, CYBSP_PWM_MASK);
                     #endif
-
+#if MSCLP_WAKE_UP_TIMER_ENABLED
                     /* Configure the MSCLP wake up timer as per the ACTIVE mode refresh rate */
                     Cy_CapSense_ConfigureMsclpTimer(ACTIVE_MODE_TIMER, &cy_capsense_context);
+#endif
                 }
                 else
                 {
                     capsense_state = ALR_MODE;
                     capsense_state_timeout = ALR_MODE_TIMEOUT;
-
+#if MSCLP_WAKE_UP_TIMER_ENABLED
                     /* Configure the MSCLP wake up timer as per the ALR mode refresh rate */
                     Cy_CapSense_ConfigureMsclpTimer(ALR_MODE_TIMER, &cy_capsense_context);
+#endif
                 }
 
                 break;
@@ -582,6 +631,7 @@ int main(void)
         #if ENABLE_TUNER
         /* Establishes synchronized communication with the CAPSENSE&trade; Tuner tool */
         Cy_CapSense_RunTuner(&cy_capsense_context);
+        // The .sensorContext array index is a little confusing and different from previous generations.
         ACTIVEValue(0x0Au, cy_capsense_tuner.sensorContext[2u].diff); //CY_CAPSENSE_BUTTON0_WDGT_ID
         ACTIVEValue(0x0Bu, cy_capsense_tuner.sensorContext[3u].diff); //CY_CAPSENSE_BUTTON1_WDGT_ID
         #endif
@@ -617,6 +667,8 @@ int main(void)
 //        Cy_SCB_UART_PutString(CYBSP_UART_HW, "Hello world\r\n");
 //        Cy_SCB_UART_Put(CYBSP_UART_HW, 0x7F);
 		#endif
+
+        ACTIVEValue(0x0Eu, Cy_SysTick_GetValue());
 
         /* Delay between commands */
 //        Cy_SysLib_Delay(1000);
@@ -673,6 +725,7 @@ static void initialize_capsense(void)
  *******************************************************************************/
 static void capsense_msc0_isr(void)
 {
+	ACTIVEText(0x0Fu, "CapSenseISR");
     Cy_CapSense_InterruptHandler(CY_MSCLP0_HW, &cy_capsense_context);
 }
 
@@ -1235,4 +1288,24 @@ void ACTIVEText( int channel, char *string ) {};
 void ACTIVEValue( int channel, int value ) {};
 void ACTIVEprintf( int channel, char *format, ... ) {};
 #endif
+
+/*******************************************************************************
+ * Function Name: start_sample_callback_function
+ ********************************************************************************
+ * Summary:
+ *  Callback function for the CAPSENSE_START_SAMPLE event. The callback will be
+ *  executed before each sensor scan triggering.
+ *  The pin state of the button sensors are changed in this function. The
+ *  sensor being scanned is connected to shield. Otherwise sensor is connected
+ *  to ground.
+ *
+ * Parameter:
+ *  cy_stc_active_scan_sns_t: Pointer to the current active sensor structure
+ *
+ *******************************************************************************/
+void start_sample_callback_function(cy_stc_active_scan_sns_t * ptrActiveScan)
+{
+	ACTIVEText(0x0Fu, "CapSenseSSE");
+}
+
 /* [] END OF FILE */
